@@ -1,0 +1,87 @@
+# Calculating Shannon Diversity for each depth zone on Melville Bank
+library(dplyr)
+library(vegan)
+library(tidyr)
+install.packages("reshape")
+library(reshape)
+library(ggplot2)
+
+# First bin transects into depth zones 
+# make a note of the total distance covered by transects for standardisation 
+
+# depth_zone_1: 0-200m. 5(50) = 250m 
+# depth_zone_2: 200-400m. 9(50) = 450m
+# depth_zone_3: 400-600m. 11(50) = 550m
+# depth_zone_4: 600-800m. 5(50) = 250m
+# *skip 800-1000m as no data* 
+# depth_zone_5: 1000-1200m. 4(50) = 200m
+# depth_zone_6: 1200-1400m. 6(50) = 300m
+
+# define depth zones by binning together transects 
+
+
+# adding random other color coumn to depth zone 4 so that it has the same
+# number of cols as the others
+depth_zone_4 <- depth_zone_4%>%
+  mutate(color = NA)
+View(dive10_first50)
+
+View(all_depth_zones)
+
+# remove all rows that arent cnidaria or porifera 
+
+library(dplyr)
+
+# Assuming df is your DataFrame
+# Replace df with your actual DataFrame
+
+# Filter rows that contain 'Porifera' or 'Cnidaria' in the 'label_hierarchy' column
+filtered_df <- all_depth_zones %>%
+  filter(grepl("Porifera|Cnidaria", label_hierarchy))
+
+# trying to plot standardised abundance for coral and sponge 
+
+
+
+
+
+
+
+# Assuming species_abundance_matrix_transects is the species abundance matrix
+# Define the custom order for depth zones
+custom_depth_order <- c("0-200m", "200-400m", "400-600m", "600-800m", "800-1000m", "1000m+")
+
+# Reorder the rows based on the custom depth zone order
+species_abundance_matrix <- species_abundance_matrix %>%
+  arrange(factor(depth_zone, levels = custom_depth_order))
+
+View(species_abundance_matrix)
+
+species_abundance_matrix <- species_abundance_matrix[,-1]
+
+# Compute row-wise sums
+row_sums <- rowSums(species_abundance_matrix)
+
+# Display the row-wise sums
+print("Row-wise sums:")
+print(row_sums)
+
+
+# need to divide each abundance by n (number of transects)
+standardised_abundances <- c(z1_abundance <- 626 / 5,
+                                z2_abundance <- 785 / 9,
+                                z3_abundance <- 1279 / 11,
+                                z4_abundance <- 255 / 5,
+                                z5_abundance <- 153 / 4,
+                                z6_abundance <- 82 / 6)
+barplot(standardised_abundances)
+
+# Labels for each bar (x-axis labels)
+depth_zones <- c(" 1", "2", "3",
+                 "4", "5", "6")
+
+# Create the bar plot with x-axis labels
+barplot(standardised_abundances, names.arg = depth_zones,
+        col = 'cornflowerblue',
+        xlab = "Depth Zones", ylab = "Standardized Abundances",
+        main = "Standardized Abundances of VME taxa by Depth Zone")

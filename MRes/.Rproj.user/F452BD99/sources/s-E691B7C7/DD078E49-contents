@@ -1,0 +1,149 @@
+library(ggplot2)
+
+all_depth_zones
+colnames(all_depth_zones)
+
+# we want to make a dataframe of environmental variables
+# CTD.Temperature, slope_value, CTD.Salinity, CTD.Pressure, substrate, ROV.RovDepth
+# you first have to normalise your environmental variables so that each of them 
+# contributes equally to the clustering analysis 
+
+# lets see the distribution of our variables
+
+# Scatter plot of temperature vs pressure on Melville Bank 
+
+ggplot(all_depth_zones, aes(x = ROV.RovDepth, y = CTD.Temperature)) + 
+  geom_point(col = "blue") + 
+  geom_smooth(method = "lm", col = "black") + # Adding a linear model (line of best fit)
+  xlab("Depth (m)") + 
+  ylab("Temperature (°C) ") + 
+  labs(title = "Scatter Plot of Temperature vs Depth on Melville Bank") + 
+  theme(plot.title = element_text(hjust = 0.5, size = 15))  # Center the plot title
+
+ggplot(all_depth_zones, aes(x = ROV.RovDepth, y = CTD.Pressure)) + 
+  geom_point(col = "blue") + 
+  geom_smooth(method = "lm", col = "black") + # Adding a linear model (line of best fit)
+  xlab("Depth (m)") + 
+  ylab("Pressure (decibars)") + 
+  labs(title = "Scatter Plot of Pressure vs Depth on Melville Bank") + 
+  theme(plot.title = element_text(hjust = 0.5, size = 15))  # Center the plot title
+
+ggplot(all_depth_zones, aes(x = ROV.RovDepth, y = CTD.Salinity)) + 
+  geom_point(col = "blue") + 
+  geom_smooth(method = "lm", col = "black") + # Adding a linear model (line of best fit)
+  xlab("Depth (m)") + 
+  ylab("Salinity (PSU)") + 
+  labs(title = "Scatter Plot of Salinity vs Depth on Melville Bank") + 
+  theme(plot.title = element_text(hjust = 0.5, size = 15))  # Center the plot title
+
+
+# Create a scatter plot of temperature, salinity, and depth
+ggplot(all_depth_zones, aes(x = CTD.Temperature, y = CTD.Salinity, color = factor(depth_zone))) + 
+  geom_point() +
+  geom_smooth(method = "lm", col = "black") + 
+  xlab("Temperature") +  # Customize x-axis label
+  ylab("Salinity") +     # Customize y-axis label
+  labs(title = "Scatter Plot of Temperature and Salinity by Depth") + 
+  theme(plot.title = element_text(hjust = 0.5, ))
+
+
+
+# Normalise environmental variables 
+
+all_depth_zones$log_temp <- log(all_depth_zones$CTD.Temperature)
+all_depth_zones$log_salinity <- log(all_depth_zones$CTD.Salinity)
+all_depth_zones$log_pressure <- log(all_depth_zones$CTD.Pressure)
+
+
+View(all_depth_zones)
+# Assuming df is your data frame with log-transformed variables (log_temp, log_salinity, log_depth)
+
+library(ggplot2)
+library(dplyr)
+library(cluster)
+colnames(all_depth_zones)
+
+# Standardize the log-transformed data
+standardized_data <- all_depth_zones %>%
+  select("log_temp", "log_salinity", "log_pressure") %>%
+  scale()
+
+# Determine the optimal number of clusters (e.g., using the elbow method)
+wss <- numeric(10) # within-cluster sum of squares
+
+for (i in 1:10) {
+  kmeans_model <- kmeans(standardized_data, centers = i, nstart = 10)
+  wss[i] <- sum(kmeans_model$tot.withinss)
+}
+
+# Plot the elbow plot to determine the optimal number of clusters
+plot(1:10, wss, type = "b", xlab = "Number of Clusters", ylab = "Within-Cluster Sum of Squares")
+
+# Based on the plot, choose an appropriate number of clusters (e.g., 3)
+num_clusters <- 4
+
+# Perform K-means clustering
+kmeans_model <- kmeans(standardized_data, centers = num_clusters, nstart = 10)
+
+# Add cluster information to the original data
+all_depth_zones$cluster <- kmeans_model$cluster
+
+# Visualize the clusters
+ggplot(all_depth_zones, aes(x = log_temp, y = log_salinity, color = factor(cluster))) +
+  geom_point() +
+  labs(title = "Cluster Analysis of Log-Transformed Temperature and Salinity") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+# PCA of environmental variables 
+
+# Standardize the environmental variables
+standardized_data <- all_depth_zones %>%
+  select("log_temp", "log_salinity", "log_pressure") %>%
+  scale()
+
+# Perform PCA
+pca_result <- prcomp(standardized_data, scale. = FALSE)  # scale. = FALSE because data is already standardized
+
+# Summary of PCA results
+summary(pca_result)
+
+# Proportion of variance explained by each principal component
+prop_var <- pca_result$sdev^2 / sum(pca_result$sdev^2)
+prop_var
+
+# Scree plot to visualize the proportion of variance explained
+plot(1:length(prop_var), prop_var, type = "b", 
+     xlab = "Principal Component", ylab = "Proportion of Variance Explained",
+     main = "Scree Plot")
+
+# Biplot to visualize loadings and data points
+biplot(pca_result)
+
+
+# Exploring the distribution of substrate type within each dataset 
+
+library(dplyr)
+library(ggplot2)
+
+colnames(all_depth_zones)
+
+# Aggregate counts of each substrate type
+substrate_counts <- all_depth_zones_4transects%>%
+  group_by(substrate) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))
+
+# Calculate proportions if needed
+total_annotations <- nrow(all_depth_zones)
+substrate_counts <- substrate_counts %>%
+  mutate(proportion = count / total_annotations)
+
+# Create a bar plot to show the distribution of substrate types
+ggplot(substrate_counts, aes(x = reorder(substrate, -count), y = count)) +
+  geom_bar(stat = "identity") +
+  xlab("Substrate Type") +
+  ylab("Count") +
+  labs(title = "Distribution of Substrate Types") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+ 
+  theme(plot.title = element_text(hjust = 0.5))

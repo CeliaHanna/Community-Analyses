@@ -1,0 +1,21 @@
+library(tidyr)
+library(dplyr)
+library(vegan)
+library(reshape)
+library(ggplot2)
+
+filtered_df <- all_depth_zones %>%
+  filter(grepl("Porifera|Cnidaria", label_hierarchy))
+
+# Filter the data frame for the specific depth zone
+filtered_df <- filtered_df[filtered_df$depth_zone == "1200-1400m", ]
+
+# Count the number of unique rows
+num_unique_species <- length(unique(filtered_df[, "label_name"]))
+
+num_unique_species
+
+
+
+
+# 5  9 11  5  4  6

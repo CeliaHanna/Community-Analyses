@@ -1,0 +1,291 @@
+# Calculating Shannon Diversity for each depth zone on Melville Bank
+library(dplyr)
+library(vegan)
+library(tidyr)
+install.packages("reshape")
+library(reshape)
+library(ggplot2)
+
+# First bin transects into depth zones 
+# make a note of the total distance covered by transects for standardisation 
+
+# depth_zone_1: 0-200m. 5(50) = 250m 
+# depth_zone_2: 200-400m. 9(50) = 450m
+# depth_zone_3: 400-600m. 11(50) = 550m
+# depth_zone_4: 600-800m. 5(50) = 250m
+# *skip 800-1000m as no data* 
+# depth_zone_5: 1000-1200m. 4(50) = 200m
+# depth_zone_6: 1200-1400m. 6(50) = 300m
+
+# define depth zones by binning together transects 
+
+
+# adding random other color coumn to depth zone 4 so that it has the same
+# number of cols as the others
+depth_zone_4 <- depth_zone_4%>%
+  mutate(color = NA)
+View(dive10_first50)
+
+View(all_depth_zones)
+
+# remove all rows that arent cnidaria or porifera 
+
+library(dplyr)
+
+# Assuming df is your DataFrame
+# Replace df with your actual DataFrame
+
+# Filter rows that contain 'Porifera' or 'Cnidaria' in the 'label_hierarchy' column
+filtered_df <- all_depth_zones %>%
+  filter(grepl("Porifera|Cnidaria", label_hierarchy))
+
+# trying to plot standardised abundance for coral and sponge 
+
+
+
+
+
+
+
+# Assuming species_abundance_matrix_transects is the species abundance matrix
+# Define the custom order for depth zones
+custom_depth_order <- c("0-200m", "200-400m", "400-600m", "600-800m", "800-1000m", "1000m+")
+
+# Reorder the rows based on the custom depth zone order
+species_abundance_matrix <- species_abundance_matrix %>%
+  arrange(factor(depth_zone, levels = custom_depth_order))
+
+View(species_abundance_matrix)
+
+species_abundance_matrix <- species_abundance_matrix[,-1]
+
+# Compute row-wise sums
+row_sums <- rowSums(species_abundance_matrix)
+
+# Display the row-wise sums
+print("Row-wise sums:")
+print(row_sums)
+
+
+# need to divide each abundance by n (number of transects)
+standardised_abundances<- c(z1_abundance <- 626 / 5,
+                                z2_abundance <- 785 / 9,
+                                z3_abundance <- 1279 / 11,
+                                z4_abundance <- 255 / 5,
+                                z5_abundance <- 153 / 4,
+                                z6_abundance <- 82 / 6)
+
+
+barplot(standardised_abundances)
+
+# Labels for each bar (x-axis labels)
+depth_zones <- c(" 1", "2", "3",
+                 "4", "5", "6")
+
+# Create the bar plot with x-axis labels
+barplot(standardised_abundances, names.arg = depth_zones,
+        col = 'cornflowerblue',
+        xlab = "Depth Zones", ylab = "Standardized Abundances",
+        main = "Standardized Abundances of VME taxa by Depth Zone")
+
+
+# to calculate error bars, you actually need to know abundnce of each transect 
+# making a dataframe for each depth zone
+
+# Create a list to store data frames for each depth zone
+depth_zone_data <- list()
+
+# Assuming your data frame structure with DepthZone as a column
+for (zone in unique(am$depth_zone)) {
+  # Subset the data for the current depth zone
+  current_zone_data <- subset(am, depth_zone == zone)
+  
+  # Store the data frame in the list
+  depth_zone_data[[as.character(zone)]] <- current_zone_data
+}
+
+# depth zone 1 
+# Assuming your first depth zone data frame is the first data frame in your list
+first_depth_zone_data <- depth_zone_data[[1]]
+
+# Calculate the total abundance for each transect (row)
+total_abundance <- rowSums(first_depth_zone_data[, -1], na.rm = TRUE)
+
+# Calculate the mean abundance for the entire depth zone
+mean_abundance <- mean(total_abundance, na.rm = TRUE)
+
+# Calculate the standard error for the mean abundance
+se <- sd(total_abundance) / sqrt(length(total_abundance))
+
+# Create a summary data frame for the first depth zone
+summary_data_first_zone <- data.frame(
+  DepthZone = unique(first_depth_zone_data$depth_zone)[1],
+  MeanAbundance = mean_abundance,
+  SE = se
+)
+
+
+# depth zone 2 
+
+# Assuming your second depth zone data frame is the second data frame in your list
+# Assuming your second depth zone data frame is the second data frame in your list
+second_depth_zone_data <- depth_zone_data[[2]]
+
+# Calculate the total abundance for each transect (row)
+total_abundance <- rowSums(second_depth_zone_data[, -1], na.rm = TRUE)
+
+# Calculate the mean abundance for the entire depth zone
+mean_abundance <- mean(total_abundance, na.rm = TRUE)
+
+# Calculate the standard error for the mean abundance
+se <- sd(total_abundance) / sqrt(length(total_abundance))
+
+# Create a summary data frame for the second depth zone
+summary_data_second_zone <- data.frame(
+  DepthZone = unique(second_depth_zone_data$depth_zone)[1],
+  MeanAbundance = mean_abundance,
+  SE = se
+)
+
+
+# Now, summary_data_second_zone contains the average abundance and standard error for the second depth zone.
+
+
+# Assuming your third depth zone data frame is the third data frame in your list
+third_depth_zone_data <- depth_zone_data[[3]]
+
+# Calculate the total abundance for each transect (row)
+total_abundance <- rowSums(third_depth_zone_data[, -1], na.rm = TRUE)
+
+# Calculate the mean abundance for the entire depth zone
+mean_abundance <- mean(total_abundance, na.rm = TRUE)
+
+# Calculate the standard error for the mean abundance
+se <- sd(total_abundance) / sqrt(length(total_abundance))
+
+# Create a summary data frame for the third depth zone
+summary_data_third_zone <- data.frame(
+  DepthZone = unique(third_depth_zone_data$depth_zone)[1],
+  MeanAbundance = mean_abundance,
+  SE = se
+)
+
+
+# Now, summary_data_third_zone contains the average abundance and standard error for the third depth zone.
+# Assuming your fourth depth zone data frame is the fourth data frame in your list
+fourth_depth_zone_data <- depth_zone_data[[4]]
+
+# Calculate the total abundance for each transect (row)
+total_abundance <- rowSums(fourth_depth_zone_data[, -1], na.rm = TRUE)
+
+# Calculate the mean abundance for the entire depth zone
+mean_abundance <- mean(total_abundance, na.rm = TRUE)
+
+# Calculate the standard error for the mean abundance
+se <- sd(total_abundance) / sqrt(length(total_abundance))
+
+# Create a summary data frame for the fourth depth zone
+summary_data_fourth_zone <- data.frame(
+  DepthZone = unique(fourth_depth_zone_data$depth_zone)[1],
+  MeanAbundance = mean_abundance,
+  SE = se
+)
+
+
+# Now, summary_data_fourth_zone contains the average abundance and standard error for the fourth depth zone.
+
+# Assuming your fifth depth zone data frame is the fifth data frame in your list
+# Assuming your fifth depth zone data frame is the fifth data frame in your list
+fifth_depth_zone_data <- depth_zone_data[[5]]
+
+# Calculate the total abundance for each transect (row)
+total_abundance <- rowSums(fifth_depth_zone_data[, -1], na.rm = TRUE)
+
+# Calculate the mean abundance for the entire depth zone
+mean_abundance <- mean(total_abundance, na.rm = TRUE)
+
+# Calculate the standard error for the mean abundance
+se <- sd(total_abundance) / sqrt(length(total_abundance))
+
+# Create a summary data frame for the fifth depth zone
+summary_data_fifth_zone <- data.frame(
+  DepthZone = unique(fifth_depth_zone_data$depth_zone)[1],
+  MeanAbundance = mean_abundance,
+  SE = se
+)
+
+# Now, summary_data_fifth_zone contains the average abundance and standard error for the fifth depth zone.
+
+# Assuming your sixth depth zone data frame is the sixth data frame in your list
+sixth_depth_zone_data <- depth_zone_data[[6]]
+
+s
+mean_abundance <- mean(total_abundance, na.rm = TRUE)
+
+# Calculate the overall mean abundance for the entire depth zone
+mean_abundance <- mean(mean_abundance_by_species)
+
+# Calculate the standard error for the mean abundance
+se <- sd(mean_abundance_by_species) / sqrt(length(mean_abundance_by_species))
+
+# Create a summary data frame for the sixth depth zone
+summary_data_sixth_zone <- data.frame(
+  DepthZone = unique(sixth_depth_zone_data$depth_zone)[1],
+  MeanAbundance = mean_abundance,
+  SE = se
+)
+
+total_abundance <- rowSums(sixth_depth_zone_data[, -1], na.rm = TRUE)
+mean_abundance <- mean(total_abundance, na.rm = TRUE)
+
+
+# Now, summary_data_sixth_zone contains the average abundance and standard error for the sixth depth zone.
+
+# Create a data frame that combines all the summary data frames
+summary_data_all <- rbind(summary_data_first_zone, summary_data_second_zone, summary_data_third_zone, summary_data_fourth_zone, summary_data_fifth_zone, summary_data_sixth_zone)
+
+# Create the bar graph
+ggplot(summary_data_all, aes(x = factor(DepthZone, levels = unique(summary_data_all$DepthZone)), y = MeanAbundance)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  geom_errorbar(aes(ymin = MeanAbundance - SE, ymax = MeanAbundance + SE), width = 0.2, position = position_dodge(0.9)) +
+  labs(title = "", x = "Depth Zone", y = "Mean Abundance", cex = 4) +
+  theme_minimal() + 
+  theme(axis.text = element_text(size = 18),  # Adjust the size as needed
+        axis.title = element_text(size = 20, face = "bold"))  # Adjust the size as needed
+
+
+
+# perform ANOVA 
+# prepare data for an ANOVA format 
+
+total_abundance <- rowSums(am)
+
+# Create a new data frame
+new_data_frame <- data.frame(
+  Transect = 1:nrow(am), # Assuming transect IDs are sequential
+  Abundance = total_abundance,
+  DepthZone = am$depth_zone
+)
+
+# check for normality 
+
+hist(new_data_frame$Abundance)
+qqnorm(new_data_frame$Abundance)
+
+log_dataframe <- log(new_data_frame)
+
+qqnorm(log_dataframe$Abundance)
+
+# Print the new data frame
+print(new_data_frame)
+
+# perform ANOVA 
+
+anova_result <- aov(Abundance ~ as.factor(DepthZone), data = new_data_frame)
+
+# Summarize the ANOVA results
+summary(anova_result)
+
+tukey_result <- TukeyHSD(anova_result)
+print(tukey_result)
+

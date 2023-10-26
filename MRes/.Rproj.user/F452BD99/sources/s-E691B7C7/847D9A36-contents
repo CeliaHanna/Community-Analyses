@@ -1,0 +1,141 @@
+# Looking at how different community compositions are 
+library(ggplot2)
+library(vegan)
+
+filtered_df <- all_depth_zones %>%
+  filter(grepl("Porifera|Cnidaria", label_hierarchy))
+
+distance_abundance_matrix <- filtered_df %>%
+  group_by(depth_zone, label_name) %>%
+  summarise(count = n()) %>%
+  pivot_wider(names_from = label_name, values_from = count, values_fill = 0)
+
+View(distance_abundance_matrix)
+
+#Ordering the matrix into ascending depth zones
+
+desired_depth_order <- c("0-200m", "200-400m", "400-600m", "600-800m", "800-1000m", "1000-1200m", "1200-1400m")
+
+distance_abundance_matrix$depth_zone <- factor(
+  distance_abundance_matrix$depth_zone,
+  levels = desired_depth_order
+)
+distance_abundance_matrix <- distance_abundance_matrix %>%
+  arrange(depth_zone)
+View(distance_abundance_matrix)
+
+# Calculate Bray-Curtis dissimilarity
+distance_matrix <- distance_abundance_matrix[ ,-1]
+View(distance_matrix)
+
+
+# Perform rarefaction to standardize sampling effort
+
+rarefied_matrix <- rrarefy(distance_abundance_matrix, sample = 80)
+
+sample_size <- 80
+
+# Initialize an empty list to store the rarefied and dissimilarity matrices
+rarefied_matrices <- list()
+dissimilarity_matrices <- list()
+
+# Perform rarefaction and calculate Bray-Curtis dissimilarity for each repeat
+for (i in 1:100) {  # Assuming 100 repeats
+  rarefied_matrix <- rrarefy(distance_abundance_matrix, sample = sample_size)
+  dissimilarity_matrix <- vegdist(rarefied_matrix, method = "bray")
+  
+  # Store the rarefied and dissimilarity matrices
+  rarefied_matrices[[i]] <- as.matrix(rarefied_matrix)
+  dissimilarity_matrices[[i]] <- as.matrix(dissimilarity_matrix)
+}
+
+# Calculate the average Bray-Curtis dissimilarity
+average_dissimilarity <- Reduce(`+`, dissimilarity_matrices) / length(dissimilarity_matrices)
+hc <- hclust(as.dist(average_dissimilarity))
+plot(hc, main = "Dendrogram of Bray-Curtis Dissimilarities", xlab = "samples", sub = NULL, cex = 1.7)
+average_dissimilarity <- as.matrix(average_dissimilarity)
+tabasco(average_dissimilarity)
+
+group_labels <- c("1", "2", "3", "4", "5", "6")  # Replace with your actual group labels
+
+# Perform ANOSIM
+anosim_result <- anosim(average_dissimilarity, group_labels, permutations = 999)
+
+# Print the ANOSIM result
+print(anosim_result)
+
+dissimilarity <-as.matrix(average_dissimilarity)
+my_colors <- colorRampPalette(c("blue"))(50)
+tabasco(average_dissimilarity)
+
+group_var <- factor(1:6)
+
+result <- adonis2(dissimilarity ~ group_var, method = "bray", permutations = 9999)
+result
+
+
+bray_curtis <- vegdist(rarefied_matrix, method = "bray")
+bray_curtis_hc <- hclust(bray_curtis, method = "average")
+plot(bray_curtis_hc, main = "Hierarchical Clustering (Bray-Curtis)")
+tabasco()
+
+jaccard <- vegdist(distance_abundance_matrix, method = "jaccard")
+jaccard_hc <- hclust(jaccard, method = "average")
+plot(jaccard_hc, main = "Hierarchical Clustering (Jaccard)")
+tabasco()
+
+chao<- vegdist(distance_abundance_matrix, method = "chao")
+chao_hc <- hclust(chao, method = "average")
+plot(chao_hc, main = "Hierarchical Clustering (Chao)"
+tabasco()
+
+
+hellinger <- vegdist(distance_abundance_matrix, method= "hellinger") 
+
+hellinger_hc <- hclust(hellinger, method = "average")
+plot(hellinger_hc, main = "Hierarchical Clustering (Hellinger)") 
+     
+
+
+
+
+
+rarefied_matrix <- subset(rarefied_matrix, select = -depth_zone)
+tabasco(bray_curtis)
+custom_palette <- heat.colors(100)
+
+bray_curtis<-as.matrix(bray_curtis)
+heatmap(bray_curtis, dendrogram = "row")
+
+plot(radfit(distance_matrix))
+
+braycurtis <- vegdist(distance_matrix, "bray")
+View(bray_curtis)
+
+# Generate the heatmap with the custom gradient color palette
+tabasco(rarefied_matrix)
+tabasco(distance_matrix)
+
+
+
+# Calculate chao dissimilarity 
+
+standardised_chao<- vegdist(rarefied_matrix, method = "chao")
+standardised_chao_hc <- hclust(standardised_chao, method = "average")
+plot(standardised_chao_hc , main = "Hierarchical Clustering (chao)")
+tabasco(standardised_chao)
+standardised_chao<- as.matrix(standardised_chao)
+
+jaccard <- vegdist(distance_abundance_matrix, method = "jaccard")
+jaccard_hc <- hclust(jaccard, method = "average")
+plot(jaccard_hc, main = "Hierarchical Clustering (jaccard)")
+tabasco()
+
+
+
+chao<- vegdist(distance_abundance_matrix, method = "chao")
+chao_hc <- hclust(chao, method = "average")
+plot(chao_hc, main = "Hierarchical Clustering (jaccard)")
+tabasco()
+
+

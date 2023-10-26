@@ -1,0 +1,338 @@
+# Rarefaction 
+# this method adjusts for differences in sample sizes to aid alpha diversity comparisons
+library(vegan)
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+
+
+filtered_df <- all_depth_zones %>%
+  filter(grepl("Porifera|Cnidaria", label_hierarchy))
+
+species_abundance_matrix <- filtered_df %>%
+  group_by(depth_zone, label_name) %>%
+  summarise(count = n()) %>%
+  pivot_wider(names_from = label_name, values_from = count, values_fill = 0)
+
+View(species_abundance_matrix)
+
+
+
+#Ordering the matrix into ascending depth zones
+
+desired_depth_order <- c("0-200m", "200-400m", "400-600m", "600-800m", "800-1000m", "1000-1200m", "1200-1400m")
+
+species_abundance_matrix$depth_zone <- factor(
+  species_abundance_matrix$depth_zone,
+  levels = desired_depth_order
+)
+species_abundance_matrix <- species_abundance_matrix %>%
+  arrange(depth_zone)
+
+View(species_abundance_matrix)
+
+class(species_abundance_matrix)
+
+species_abundance_matrix <- as.data.frame(species_abundance_matrix)
+
+# Assuming 'species_abundance_matrix' is your data frame# Check which columns are not numeric
+non_numeric_columns <- sapply(species_abundance_matrix, function(x) !is.numeric(x))
+
+# Print the names of non-numeric columns
+print(names(species_abundance_matrix)[non_numeric_columns])
+
+# we need to convert the depth_zone names to numeric 
+depth_zone_mapping <- c('0-200m' = 1, '200-400m' = 2, '400-600m' = 3, '600-800m' = 4, '800-1000m' = 5, '1000-1200m' = 6, '1200-1300m' = 7)
+
+# Replace depth zone labels with integers based on the mapping
+species_abundance_matrix$depth_zone <- depth_zone_mapping[species_abundance_matrix$depth_zone]
+
+
+
+
+
+
+
+---------
+
+# establish the sample size you want to rarefy communities by 
+# this can be equal to the minimum abundance of a depth zone 
+View(species_abundance_matrix)
+rowSums(species_abundance_matrix)
+# minimum is 89 # so rarefy by this sample size aka rarefaction depth  
+
+# plot a rarefaction curve to visualise how species richness changes as a function of sampling effort
+rarecurve(
+  species_abundance_matrix, 
+  ylab = "Morphospecies", 
+  step = 1, 
+  sample = 89, 
+  col = colors,  # Use rainbow(5) for 5 different colors
+  cex = 0.6, 
+  main = "Rarefaction Curve"
+)
+# Define colors for each community (replace with your desired colors)
+colors <- c("red", "blue", "green", "purple", "orange", "pink")
+
+# Add a legend with specified colors for each community
+legend("topright", legend = paste("Depth_zone", 1:6), col = colors, lwd = 2, cex = 0.6)
+# rarefaction curve shows even with all our sampling efforts we are still only capturing small portion 
+# off possible richness in this community 
+# we have rarefied each depth zone to a sample size of 105 individuals 
+
+# plot rarefied richnesses 
+rarefied_richness_per_depth_zone<-rarefy(species_abundance_matrix, 80,se = FALSE, MARGIN = 1)
+
+par(mfrow = c(1, 1) + 0.1)
+
+# Set up a 3-row layout for the panel plot
+par(mfrow = c(4, 1), mar = c(0.5, 3.5, 0.2, 0.2) + 1.4)
+
+rarefied_richness_per_depth_zone<-as.data.frame(rarefied_richness_per_depth_zone)
+
+plot(rarefied_richness_per_depth_zone, col = "purple", cex = 1.8, cex.lab=1, pch = 20, ylab = "Depth Zone", 
+     xlab = "Richness")
+lines(rarefied_richness_per_depth_zone, col = "grey", type = "b")
+
+shannon <- diversity(rrarefied_richness, index = "shannon")
+Shannon<-as.data.frame(shannon)
+        
+
+plot(shannon, col = "blue", cex = 1.8, cex.lab=1, pch = 20, ylab = "Shannon", 
+     xlab = "Depth Zone")
+lines(shannon, col = "grey", type = "b")
+
+simpson <- diversity(rrarefied_richness, index = 'simpson')
+plot(simpson,  col = "red", cex = 1.8, cex.lab=1, pch = 20, ylab = "Simpson", 
+     xlab = "Depth Zone")
+lines(simpson, col = "grey", type = "b")
+
+evenness <- diversity(rrarefied_richness, index = "invsimpson")
+plot(evenness, col = "orange", cex = 1.8, cex.lab=1, pch = 20, ylab = "Evenness", 
+     xlab = "Depth Zone")
+lines(evenness, col = "grey", type = "b")
+
+
+evenness<- diversity(rrarefied_richness, index = "invsimpson")
+
+plot(evenness)
+
+plot(rarefied_richness_per_depth_zone, ylab= "Rarefied Species Richness", xlab = "Depth Zone", pch = 21, bg = "blue", cex = 1.8, cex.lab = 1.5, main = "Rarefied Richness Values for each Depth Zone on Melville Bank")
+lines(rarefied_richness_per_depth_zone, col = "grey", type = "b")
+
+# Check for statistically significant differences in rarefied richness values
+# using an ANOV
+
+View(rrarefied_richness)
+
+# create a loop to generate rarefied datasets and calculate their richness values 
+
+list_richness <- vector(mode='list', length = n_rep)
+
+n_rep = 100
+cutoff = 90
+
+for (i in 1:n_rep) { 
+  print(i)
+  rarefied_richness_temp <- rrarefy(species_abundance_matrix, cutoff)
+  diversity_temp <- c(specnumber(rarefied_richness_temp))
+  list_richness[[i]]=diversity_temp } 
+
+
+df_richness <- do.call("cbind",list_richness)
+df_richness <- df_richness %>% as.data.frame() %>%
+  mutate(DepthZone = 1:n()) 
+
+View(df_richness)
+
+# put data into long format for ANOVA 
+df_richness_long<-pivot_longer(df_richness, cols = 1:n_rep, values_to = "Richness")
+View(df_richness_long)
+
+model<- lm(Richness~as.factor(DepthZone), data = df_richness_long)
+summary(model)
+
+anova_result <- aov(Richness ~ factor(DepthZone), data = df_richness_long)
+summary(anova_result)
+
+plot(df_richness_long$DepthZone, df_richness_long$Richness)
+
+ggplot(df_richness_long, aes(x = factor(DepthZone), y = Richness, fill = DepthZone)) +
+  geom_boxplot() +
+  xlab("Depth Zone") +
+  ylab("Morphospecies Richness") +
+  theme_minimal() + 
+  ggtitle("") +
+  theme(
+    axis.text = element_text(size = 15),  # Change the size of axis labels
+    axis.title = element_text(size =20),  # Change the size of axis titles
+    plot.title = element_text(size = 20)  # Change the size of the plot title
+  )
+
+# Run Tukey HSD test
+tukey_result <- TukeyHSD(anova_result)
+
+# Print the Tukey HSD test results
+print(tukey_result)
+
+# Plot the results (optional)
+plot(tukey_result)
+
+# calculate multiple sets of rarefied communities, all of sample size 105
+
+rrarefied_richness1<- rrarefy(species_abundance_matrix, 105)
+rrarefied_richness2<- rrarefy(species_abundance_matrix, 105)
+rrarefied_richness3<- rrarefy(species_abundance_matrix, 105)
+rrarefied_richness4<- rrarefy(species_abundance_matrix, 105)
+rrarefied_richness5<- rrarefy(species_abundance_matrix, 105)
+
+
+# Calculate Shannon diversity for each of the rarefied communities 
+
+d1<-c(diversity(rrarefied_richness1))
+d2<-c(diversity(rrarefied_richness2))
+d3<-c(diversity(rrarefied_richness3))
+d4<-c(diversity(rrarefied_richness4))
+d5<-c(diversity(rrarefied_richness5))
+
+
+
+
+d<-cbind(d1,d2,d3,d4,d5) %>% 
+  as.data.frame() %>%
+  mutate(depth_zone = 1:n())
+
+
+
+depth_z1<- c(1.460281, 1.672491,1.533320,1.661587,1.773154)
+depth_z2<- c(1.631707,1.827342,1.572137,1.839947,1.623488)
+depth_z3<- c(1.804348,1.831189,1.670269,1.759647,1.933213)
+depth_z4<-c(2.583953,2.625541,2.853327,2.686927,2.727747)
+depth_z5<-c(1.817276,1.911176,2.147115,2.110293,1.947724)
+depth_z6 <- c(2.770579,2.770579,2.770579,2.770579,2.770579)
+
+
+# Combine shannon diversity values into a data frame
+richness_data <- data.frame(
+  Richness = c(depth_z1, depth_z2, depth_z3, depth_z4, depth_z5, depth_z6),
+  DepthZone = rep(1:6, each = length(depth_z1))
+)
+
+par(mfrow = c(1, 1))  # Reset the plotting layout to the default single-panel layout
+plot(richness_data)
+richness_data
+model1<- lm(Richness~as.factor(DepthZone), data = richness_data)
+summary(model1)
+plot(model1)
+
+# Checking for normality in order to use ANOVA 
+
+par(mfrow = c(1, 2))
+hist(richness_data$Richness, breaks = 10, main = "Histogram of Richness")
+qqnorm(richness_data$Richness, main = "Q-Q Plot")
+qqline(richness_datalog$Richness)
+
+richness_datalog<- log(richness_data)
+richness_datasqrt<- sqrt(richness_data)
+qqnorm(richness_datasqrt$Richness, main = "Q-Q Plot")
+
+boxplot(richness_data$DepthZone)
+hist(richness_data$DepthZone)
+
+View(richness_data)
+
+# Perform ANOVA
+anova_result <- aov(Richness ~ factor(DepthZone), data = richness_data)
+
+# Print ANOVA summary
+summary(anova_result)
+
+
+ggplot(richness_data, aes(x = factor(DepthZone), y = Richness)) +
+  geom_violin() +
+  xlab("Depth Zone") +
+  ylab("Richness") +
+  ggtitle("Richness by Depth Zone")
+
+
+# Run Tukey HSD test
+tukey_result <- TukeyHSD(anova_result)
+
+# Print the Tukey HSD test results
+print(tukey_result)
+
+# Plot the results (optional)
+plot(tukey_result)
+
+
+# Create a data frame with separate columns for each depth zone
+richness_data <- data.frame(
+  DepthZone = rep(1:6, each = length(depth_z1)),
+  Richness = c(depth_z1, depth_z2, depth_z3, depth_z4, depth_z5, depth_z6)
+)
+
+# Calculate mean and standard error for each depth zone
+richness_summary <- richness_data %>%
+  group_by(DepthZone) %>%
+  summarize(mean_richness = mean(Richness),
+            std_error = sd(Richness) / sqrt(length(Richness)))
+
+# Create a bar plot with error bars
+ggplot(richness_summary, aes(x = factor(DepthZone), y = mean_richness, fill = factor(DepthZone))) +
+  geom_bar(stat = "identity") +
+  geom_errorbar(aes(ymin = mean_richness - std_error, ymax = mean_richness + std_error), 
+                position = position_dodge(0.9), width = 0.2) +
+  xlab("Depth Zone") +
+  ylab("Richness") +
+  ggtitle("Richness by Depth Zone") +
+  theme_minimal() +
+  theme(legend.position = "top left", legend.title = element_blank())
+
+
+
+rank_abundance_plot<-radfit(rarefied_matrix)
+plot(rank_abundance_plot)
+
+# finding out which species are most abundant in each depth zone 
+
+# Extract the species that are ranked first in each depth zone.
+most_abundant_species <- apply(species_abundance_matrix, 1, function(depth_zone) {
+  # Check for missing values and exclude them when finding the maximum.
+  max_species_index <- which.max(depth_zone)
+  if (!is.na(max_species_index)) {
+    colnames(abundance_matrix)[max_species_index]
+  } else {
+    "No Data"  # You can replace "No Data" with an appropriate value for missing data.
+  }
+})
+
+result <- data.frame(DepthZone = rownames(abundance_matrix), MostAbundantSpecies = most_abundant_species)
+
+
+
+
+row_to_analyze <- 5
+
+# Find the column heading (species name) with the maximum value in row 3.
+most_abundant_species <- colnames(rarefied_matrix)[which.max(rarefied_matrix[row_to_analyze, ])]
+
+# Print or inspect the result.
+print(most_abundant_species)
+# Print or inspect the result.
+print(result)
+
+
+
+# Print or inspect the result.
+print(result)
+
+
+# Access the row for depth zone 1
+abundance_depth_zone_1 <- species_abundance_matrix[1, ]
+
+View(species_abundance_matrix)
+
+# Find the most abundant species in depth zone 1
+most_abundant_species <- names(abundance_depth_zone_1)[which.max(abundance_depth_zone_1)]
+most_abundant_species
+

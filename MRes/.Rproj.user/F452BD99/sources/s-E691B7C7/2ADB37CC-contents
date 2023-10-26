@@ -1,0 +1,240 @@
+library(ggplot2)
+library(dplyr)
+library(cluster)
+
+all_depth_zones
+colnames(all_depth_zones)
+
+# we want to make a dataframe of environmental variables
+# CTD.Temperature, slope_value, CTD.Salinity, CTD.Pressure, substrate, ROV.RovDepth
+# you first have to normalise your environmental variables so that each of them 
+# contributes equally to the clustering analysis 
+
+# lets see the distribution of our variables
+
+# Scatter plot of temperature vs pressure on Melville Bank 
+
+ggplot(all_depth_zones, aes(x = ROV.RovDepth, y = CTD.Temperature)) + 
+  geom_point(col = "blue") + 
+  geom_smooth(method = "lm", col = "black") + # Adding a linear model (line of best fit)
+  xlab("Depth (m)") + 
+  ylab("Temperature (°C) ") + 
+  labs(title = "Scatter Plot of Temperature vs Depth on Melville Bank") + 
+  theme(plot.title = element_text(hjust = 0.5, size = 15))  # Center the plot title
+
+ggplot(all_depth_zones, aes(x = ROV.RovDepth, y = CTD.Pressure)) + 
+  geom_point(col = "blue") + 
+  geom_smooth(method = "lm", col = "black") + # Adding a linear model (line of best fit)
+  xlab("Depth (m)") + 
+  ylab("Pressure (decibars)") + 
+  labs(title = "Scatter Plot of Pressure vs Depth on Melville Bank") + 
+  theme(plot.title = element_text(hjust = 0.5, size = 15))  # Center the plot title
+
+ggplot(all_depth_zones, aes(x = ROV.RovDepth, y = CTD.Salinity)) + 
+  geom_point(col = "blue") + 
+  geom_smooth(method = "lm", col = "black") + # Adding a linear model (line of best fit)
+  xlab("Depth (m)") + 
+  ylab("Salinity (PSU)") + 
+  labs(title = "Scatter Plot of Salinity vs Depth on Melville Bank") + 
+  theme(plot.title = element_text(hjust = 0.5, size = 15))  # Center the plot title
+
+
+# Create a scatter plot of temperature, salinity, and depth
+ggplot(all_depth_zones, aes(x = CTD.Temperature, y = CTD.Salinity, color = factor(depth_zone))) + 
+  geom_point() +
+  geom_smooth(method = "lm", col = "black") + 
+  xlab("Temperature") +  # Customize x-axis label
+  ylab("Salinity") +     # Customize y-axis label
+  labs(title = "Scatter Plot of Temperature and Salinity by Depth") + 
+  theme(plot.title = element_text(hjust = 0.5, ))
+
+
+
+# Normalise environmental variables 
+
+all_depth_zones$log_temp <- log(all_depth_zones$CTD.Temperature)
+all_depth_zones$log_salinity <- log(all_depth_zones$CTD.Salinity)
+all_depth_zones$log_pressure <- log(all_depth_zones$CTD.Pressure)
+all_depth_zones$log_slope_value<-log(all_depth_zones$slope_value)
+
+
+# Pairwise scatterplots of environmental variables 
+
+# Select relevant columns
+selected_data <- all_depth_zones %>%
+  select(CTD.Temperature, CTD.Salinity, CTD.Pressure, slope_value)
+
+# Create pairwise scatterplots
+pairs(selected_data)
+ # indicates PCA may be able to reduce dimenstionality of the data 
+
+
+
+
+View(all_depth_zones)
+# Assuming df is your data frame with log-transformed variables (log_temp, log_salinity, log_depth)
+
+colnames(all_depth_zones)
+
+# Standardize the log-transformed data
+standardized_data <- all_depth_zones %>%
+  select("log_temp", "log_salinity", "log_pressure") %>%
+  scale()
+
+# Determine the optimal number of clusters (e.g., using the elbow method)
+wss <- numeric(10) # within-cluster sum of squares
+
+for (i in 1:10) {
+  kmeans_model <- kmeans(standardized_data, centers = i, nstart = 10)
+  wss[i] <- sum(kmeans_model$tot.withinss)
+}
+
+# Plot the elbow plot to determine the optimal number of clusters
+plot(1:10, wss, type = "b", xlab = "Number of Clusters", ylab = "Within-Cluster Sum of Squares")
+
+# Based on the plot, choose an appropriate number of clusters (e.g., 3)
+num_clusters <- 4
+# elbow point is 4 
+
+# Perform K-means clustering
+kmeans_model <- kmeans(standardized_data, centers = num_clusters, nstart = 10)
+
+# Add cluster information to the original data
+all_depth_zones$cluster <- kmeans_model$cluster
+
+# Visualize the clusters
+ggplot(all_depth_zones, aes(x = log_temp, y = log_salinity, color = factor(cluster))) +
+  geom_point() +
+  labs(title = "Cluster Analysis of Log-Transformed Temperature and Salinity") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+# PCA of environmental variables 
+
+# Standardize the environmental variables
+PCA_data <- all_depth_zones %>%
+  select("CTD.Temperature", "CTD.Salinity", "CTD.Pressure", "slope_value") %>%
+  scale()
+
+# Perform PCA
+pca_result <- prcomp(PCA_data, scale. = TRUE)  # scale. = FALSE because data is already standardized
+
+pca_result
+
+# Summary of PCA results
+summary(pca_result)
+
+plot(pca_result, type = "l")
+biplot(pca_result, scale = 0)
+
+# Extract PC scores 
+str(pca_result)
+
+pca_result$x
+
+# Make new dataframe containing original data and principl component scores
+PC_data <- cbind(all_depth_zones, pca_result$x[,1:2])
+head(PC_data)
+
+ggplot(PC_data, aes(PC1,PC2, col = 'depth_zone'))
+
+ggplot(PC_data, aes(PC1, PC2, color = depth_zone, fill = depth_zone)) +
+  stat_ellipse(geom = "polygon", col = "black", alpha = 0.5)+ 
+  geom_point(shape = 21, col = "black")
+
+# Reorder the levels of 'depth_zone' based on your desired order
+PC_data$depth_zone <- factor(PC_data$depth_zone, levels = c('0-200m', '200-400m','400-600m',
+                                                            '600-800m', '1000-1200m', '1200-1400m'))
+
+# Plot with the reordered levels for 'depth_zone'
+ggplot(PC_data, aes(PC1, PC2, color = depth_zone, fill = depth_zone)) +
+  stat_ellipse(geom = "polygon", color = "black", alpha = 0.5) +
+  geom_point(shape = 21, aes(color = depth_zone, fill = depth_zone))+
+  theme(legend.key = element_blank())  + 
+  theme_bw()# Optional: Hide legend key to remove the outline in the legend
+
+
+# Proportion of variance explained by each principal component
+prop_var <- pca_result$sdev^2 / sum(pca_result$sdev^2)
+prop_var
+
+# Scree plot to visualize the proportion of variance explained
+plot(1:length(prop_var), prop_var, type = "b", 
+     xlab = "Principal Component", ylab = "Proportion of Variance Explained",
+     main = "Scree Plot")
+
+# Biplot to visualize loadings and data points
+biplot(pca_result, scale = 0)
+
+
+# PCA can only use continuous variables 
+
+
+# Exploring the distribution of substrate type within each dataset 
+
+
+colnames(all_depth_zones)
+
+# Aggregate counts of each substrate type
+substrate_counts <- all_depth_zones_4transects%>%
+  group_by(substrate) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))
+
+# Calculate proportions if needed
+total_annotations <- nrow(all_depth_zones)
+substrate_counts <- substrate_counts %>%
+  mutate(proportion = count / total_annotations)
+
+# Create a bar plot to show the distribution of substrate types
+ggplot(substrate_counts, aes(x = reorder(substrate, -count), y = count)) +
+  geom_bar(stat = "identity") +
+  xlab("Substrate Type") +
+  ylab("Count") +
+  labs(title = "Distribution of Substrate Types") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+ 
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+### EXPLORING SUBSTRATE TYPES WITH DEPTH ZONE ###
+
+# Load necessary libraries
+
+# Group by depth_zone and substrate_type, then count occurrences
+
+filtered_df <- all_depth_zones %>%
+  filter(grepl("Porifera|Cnidaria", label_hierarchy))
+
+substrate_counts <- filtered_df %>%
+  group_by(depth_zone, substrate) %>%
+  summarise(count = n())
+
+
+# Print the original order of depth zones
+print(levels(substrate_counts$depth_zone))
+
+# Change the order of depth zones
+substrate_counts$depth_zone <- factor(substrate_counts$depth_zone, levels = c("0-200m", "200-400m", "400-600m", "600-800m",
+                                                                              "1000-1200m","1200-1400m" ))
+# Print the updated order of depth zones
+print(levels(substrate_counts$depth_zone))
+
+ggplot(substrate_counts, aes(x = depth_zone, y = count, fill = substrate)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Depth Zone", y = "Count", fill = "Substrate Type") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for better readability
+
+# Standardise substrate occurrence by transect number 
+
+transects_data <- data.frame(depth_zone = c("0-200m", "200-400m", "400-600m", "600-800m", "1000-1200m", "1200-1400m"),
+                             transects = c(5, 9, 11, 5, 4, 6))
+
+merged_data <- merge(aggregated_data, transects_data, by = "depth_zone")
+merged_data$standardized_rate <- merged_data$count/merged_data$transects
+
+ggplot(merged_data, aes(x = depth_zone, y = standardized_rate, fill = substrate_type)) +
+  geom_bar(stat = "identity", position = "stack") +
+  labs(x = "Depth Zone", y = "Standardized Occurrence Rate", fill = "Substrate Type") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+

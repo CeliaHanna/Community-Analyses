@@ -1,0 +1,6 @@
+## looking at gradient distribution 
+
+all_depth_zones
+plot(all_depth_zones$depth_zone, all_depth_zones$slope_value)
+averages <- aggregate(slope_value ~ depth_zone, data = all_depth_zones, FUN = mean)
+averages

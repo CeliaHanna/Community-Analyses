@@ -1,0 +1,25 @@
+# Assuming your data frame is named 'df'
+
+# Step 1: Filter rows with 'zoanthid' in the 'label_name' column
+zoanthid_data <- all_depth_zones[all_depth_zones$label_name == "DIO zoantharia yellow", ]
+
+# Step 2: Create a new data frame with the filtered rows and 'depth_zone'
+zoanthid_depth_data <- zoanthid_data[, c("label_name", "depth_zone")]
+
+# Step 3: Count the occurrences of zoanthids in each depth zone
+zoanthid_counts <- table(zoanthid_depth_data$depth_zone)
+
+# Step 4: Plot the results on a bar graph
+library(ggplot2)
+
+zoanthid_counts_df <- as.data.frame(zoanthid_counts)
+zoanthid_counts_df$depth_zone <- row.names(zoanthid_counts_df)
+colnames(zoanthid_counts_df) <- c("Count", "DepthZone")
+
+ggplot(zoanthid_counts_df, aes(x = DepthZone, y = Count, fill = DepthZone)) +
+  geom_bar(stat = "identity") +
+  xlab("Depth Zone") +
+  ylab("Count of Zoanthids") +
+  ggtitle("Zoanthid Counts by Depth Zone") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))

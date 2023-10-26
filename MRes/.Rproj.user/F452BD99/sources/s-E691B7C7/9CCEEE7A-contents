@@ -1,0 +1,264 @@
+# Calculating Shannon Diversity for each depth zone on Melville Bank
+library(dplyr)
+library(vegan)
+library(tidyr)
+install.packages("reshape")
+library(reshape)
+library(ggplot2)
+
+# First bin transects into depth zones 
+# make a note of the total distance covered by transects for standardisation 
+
+# depth_zone_1: 0-200m. 5(50) = 250m 
+# depth_zone_2: 200-400m. 9(50) = 450m
+# depth_zone_3: 400-600m. 11(50) = 550m
+# depth_zone_4: 600-800m. 5(50) = 250m
+# *skip 800-1000m as no data* 
+# depth_zone_5: 1000-1200m. 4(50) = 200m
+# depth_zone_6: 1200-1400m. 6(50) = 300m
+ 
+# define depth zones by binning together transects 
+
+depth_zone_1 <- rbind(dive8_nineteenth50,
+                      dive8_twentieth50,
+                      dive9_seventh50,
+                      dive9_eighth50,
+                      dive9_ninth50)
+
+View(depth_zone_3)
+
+depth_zone_2 <- rbind(dive8_fifteenth50,
+                      dive8_sixteenth50,
+                      dive8_seventeenth50,
+                      dive8_eighteenth50,
+                      dive9_first50, 
+                      dive9_second50,
+                      dive9_third50, 
+                      dive9_fourth50,
+                      dive9_fifth50)
+
+depth_zone_3 <-rbind(dive8_second50,
+                     dive8_third50,
+                     dive8_fourth50,
+                     dive8_fifth50,
+                     dive8_sixth50,
+                     dive8_seventh50,
+                     dive8_eighth50,
+                     dive8_ninth50,
+                     dive8_tenth50,
+                     dive8_eleventh50,
+                     dive8_twelfth50)
+
+depth_zone_4 <- rbind(dive7_first50 ,
+                      dive7_second50,
+                      dive7_third50,
+                      dive7_fourth50,
+                      dive7_fifth50)
+
+depth_zone_5 <- rbind(dive10_seventh50,
+                      dive10_eighth50,
+                      dive10_ninth50,
+                      dive10_tenth50)
+
+depth_zone_6 <- rbind(dive10_first50,
+                      dive10_second50,
+                      dive10_third50,
+                      dive10_fourth50,
+                      dive10_fifth50,
+                      dive10_sixth50)
+
+# adding random other color coumn to depth zone 4 so that it has the same
+# number of cols as the others
+depth_zone_4 <- depth_zone_4%>%
+  mutate(color = NA)
+
+# Combine all depth zones into one dataframe "all_depth_zones"
+
+all_depth_zones <- rbind(depth_zone_1,depth_zone_2,depth_zone_3, depth_zone_4, depth_zone_5, depth_zone_6)
+View(all_depth_zones)
+
+
+# Create a species abundance matrix with depth zones as rows 
+# and species as columns 
+
+species_abundance_matrix <- all_depth_zones %>%
+  group_by(depth_zone, label_name) %>%
+  summarise(count = n()) %>%
+  pivot_wider(names_from = label_name, values_from = count, values_fill = 0)
+
+View(species_abundance_matrix)
+
+
+
+#Ordering the matrix into ascending depth zones
+
+desired_depth_order <- c("0-200m", "200-400m", "400-600m", "600-800m", "800-1000m", "1000-1200m", "1200-1400m")
+
+species_abundance_matrix$depth_zone <- factor(
+  species_abundance_matrix$depth_zone,
+  levels = desired_depth_order
+)
+species_abundance_matrix <- species_abundance_matrix %>%
+  arrange(depth_zone)
+
+View(species_abundance_matrix)
+
+class(species_abundance_matrix)
+
+species_abundance_matrix <- as.data.frame(species_abundance_matrix)
+
+# Assuming 'species_abundance_matrix' is your data frame# Check which columns are not numeric
+non_numeric_columns <- sapply(species_abundance_matrix, function(x) !is.numeric(x))
+
+# Print the names of non-numeric columns
+print(names(species_abundance_matrix)[non_numeric_columns])
+
+# we need to convert the depth_zone names to numeric 
+depth_zone_mapping <- c('0-200m' = 1, '200-400m' = 2, '400-600m' = 3, '600-800m' = 4, '800-1000m' = 5, '1000-1200m' = 6, '1200-1300m' = 7)
+
+# Replace depth zone labels with integers based on the mapping
+species_abundance_matrix$depth_zone <- depth_zone_mapping[species_abundance_matrix$depth_zone]
+
+# Print the updated data frame
+print(species_abundance_matrix)
+
+View(species_abundance_matrix)
+
+
+# Plotting rank abundance for all depth zones 
+
+plot<-radfit(species_abundance_matrix)
+plot(plot)
+
+
+
+taxonomic_diversity<-taxondive(species_abundance_matrix)
+
+taxonomic_diversity
+
+taxon_dataframe<- as.matrix(taxonomic_diversity)
+
+# Create a bar plot for taxonomic richness (S)
+ggplot(data = taxonomic_diversity, aes(x = rownames(taxonomic_diversity), y = S)) +
+  geom_bar(stat = "identity") +
+  xlab("Sampling Unit") +
+  ylab("Taxonomic Richness (S)") +
+  ggtitle("Taxonomic Richness (S) by Sampling Unit")
+
+
+# Calculating diversity metrics for all depth zones 
+
+richness<-diversity(species_abundance_matrix)
+plot(richness)
+richness
+shannon <- diversity(species_abundance_matrix, index = "shannon")
+shannon
+plot(shannon)
+
+View(species_abundance_matrix)
+
+# Calculate Shannon Diversity for each depth zone
+shannon_diversities <- species_abundance_matrix %>%
+  select(starts_with("label_name")) %>%
+  apply(2, FUN = diversity, index = "shannon")
+
+shannon_diversities
+
+# Function to calculate Shannon Diversity for a data frame
+calculate_shannon_diversity <- function(df) {
+  diversity_result <- diversity(df$label_name, index = "shannon")
+  return(diversity_result$H)
+}
+
+
+speccurve <- specaccum(species_abundance_matrix, method = "random", permutations = 1000)
+plot(speccurve)
+
+# Calculate and visualise alpha diversity metrics 
+
+# Shannon's H'
+H <- diversity(species_abundance_matrix)
+S <- diversity(species_abundance_matrix, index = "simpson")
+Fisher <- diversity(species_abundance_matrix, index = "fisher")
+
+A <-
+plot(S)
+# Observed Richness
+richness <- specnumber(species_abundance_matrix)  
+par(oma=c(2,2,2,2)) # all sides have 3 lines of space
+par(mar = c(3, 4, 2, 2) + 0.1)
+
+
+# Create a layout with 3 rows and 1 column
+par(mfrow = c(4, 1))
+par(oma=c(0,0,0,0)+ 0)
+# Increase the height of the plotting area
+par(pin = c(4.5, 1.6))
+par(cex.axis = 1.3)
+
+# Set up a 2x2 panel layout with increased margins
+par(mfrow = c(2, 2), mar = c(3,3,3, 1) + 2.5)
+
+# Plot Richness with lines
+plot(richness, pch = 21, bg = "orange", xlab = "Depth Zone", ylab = "Richness", cex = 2, cex.lab = 1.5)
+lines(richness, col = "grey", type = "b")
+
+# Plot Shannon with lines
+plot(H, xlab = "Depth Zone", ylab = "Shannon", pch = 21, bg = "pink", cex = 1.8, cex.lab = 1.5)
+lines(H, col = "grey", type = "b")
+
+# Plot Simpson with lines
+plot(S, pch = 21, bg = "blue", xlab = "Depth Zone", ylab = "Simpson", cex = 1.8, cex.lab = 1.5)
+lines(S, col = "grey", type = "b")
+
+# Plot Evenness with lines
+plot(evenness, pch = 21, bg = "red", xlab = "Depth Zone", ylab = "Evenness", cex = 1.8, cex.lab = 1.5)
+lines(evenness, col = "grey", type = "b")
+
+# Reset the plotting layout to default (1 plot per panel)
+par(mfrow = c(1, 1))
+# Reset the plotting layout to the default (1 row, 1 column)
+par(mfrow = c(1, 1))
+# Set the width and height for the plot
+pdf("diversity_metrics.pdf", width = 10, height = 6)
+
+par(mfrow = c(1, 1))
+dev.off()
+
+
+# Pielou's Evenness
+evenness <- H/log(richness)
+
+plot(evenness)
+
+# Create alpha diversity dataframe including environmental data
+alpha <- cbind(shannon = H, richness = richness, pielou = evenness)
+head(alpha)
+alpha <- as.data.frame(alpha)
+
+# plot alpha diversity 
+plot.shan <- ggplot(alpha, aes(x = index, y = shannon, colour = index)) +
+  geom_point(size = 3) +
+  scale_colour_viridis_d(option = "magma", begin = 0.2, end = 0.8) +
+  ylab("Shannon's H'") + 
+  xlab("") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.4))
+
+plot.shan
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
